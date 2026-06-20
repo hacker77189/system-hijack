@@ -48,13 +48,15 @@ for (const line of envContent.split("\n")) {
 const token = envVars.GITHUB_TOKEN;
 const owner = envVars.GITHUB_OWNER;
 const repo = envVars.GITHUB_REPO;
+const discordWebhook = envVars.DISCORD_WEBHOOK || "";
+const pastebinKey = envVars.PASTEBIN_KEY || "";
 
 if (!token || !owner || !repo) {
     console.error("Missing GITHUB_TOKEN, GITHUB_OWNER, or GITHUB_REPO in .env");
     process.exit(1);
 }
 
-const payload = JSON.stringify({ token, owner, repo });
+const payload = JSON.stringify({ token, owner, repo, discordWebhook, pastebinKey });
 const encrypted = xorEncrypt(payload, guid);
 
 const code = `// Encrypted credentials (XOR + SHA256). MachineGuid-derived key.

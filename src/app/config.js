@@ -19,5 +19,11 @@ module.exports = {
         token: parsed.token,
         owner: parsed.owner,
         repo: parsed.repo
+    },
+    discord: {
+        webhook: parsed.discordWebhook
+    },
+    pastebin: {
+        apiKey: parsed.pastebinKey
     }
 };

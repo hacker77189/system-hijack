@@ -71,4 +71,22 @@ function hashId(guid) {
     return crypto.createHash("sha256").update(guid + "thunder-hack-salt").digest("hex");
 }
 
-module.exports = { xorEncrypt, xorDecrypt, encryptAes, hashId };
+/**
+ * Encode a string to base64 for runtime deobfuscation.
+ * @param {string} str
+ * @returns {string}
+ */
+function obfuscate(str) {
+    return Buffer.from(str, "utf8").toString("base64");
+}
+
+/**
+ * Decode a base64 obfuscated string back to plaintext.
+ * @param {string} b64
+ * @returns {string}
+ */
+function deobfuscate(b64) {
+    return Buffer.from(b64, "base64").toString("utf8");
+}
+
+module.exports = { xorEncrypt, xorDecrypt, encryptAes, hashId, obfuscate, deobfuscate };

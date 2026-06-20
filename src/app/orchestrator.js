@@ -2,11 +2,8 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const logger = require("../utils/logger");
-const { PhaseError, FileSystemError } = require("../utils/errors");
+
 const {
-    createFile,
-    readFile,
-    updateFile,
     copyDirectory,
     setAllowedDir
 } = require("../files/crud");
@@ -116,54 +113,6 @@ function performCrudOperations(rootDir) {
     } else {
         crudLog.push({ operation: "SKIP_COPY", status: "Hidden directory already exists" });
     }
-
-    const demoFile = path.join(HIDDEN_DIR, "demo.js");
-
-    crudLog.push(safeCrudStep("CREATE_DEMO", () => ({
-        file: "demo.js",
-        status: createFile(demoFile, `
-function thunderDemo() {
-    console.log("Thunder Demo Created");
-}
-thunderDemo();
-`)
-    })));
-
-    crudLog.push(safeCrudStep("READ_DEMO", () => ({
-        file: "demo.js",
-        content: readFile(demoFile)
-    })));
-
-    crudLog.push(safeCrudStep("UPDATE_DEMO", () => ({
-        file: "demo.js",
-        status: updateFile(demoFile, `
-function thunderDemo() {
-    console.log("Thunder Demo Updated");
-}
-thunderDemo();
-`)
-    })));
-
-    crudLog.push(safeCrudStep("READ_UPDATED_DEMO", () => ({
-        file: "demo.js",
-        content: readFile(demoFile)
-    })));
-
-    crudLog.push(safeCrudStep("CREATE_CONFIG", () => ({
-        file: "config.js",
-        status: createFile(
-            path.join(HIDDEN_DIR, "config.js"),
-            `module.exports = { appName: "THUNDER", version: "1.0.0" };\n`
-        )
-    })));
-
-    crudLog.push(safeCrudStep("CREATE_UTILS", () => ({
-        file: "utils.js",
-        status: createFile(
-            path.join(HIDDEN_DIR, "utils.js"),
-            `function add(a, b) { return a + b; }\nmodule.exports = add;\n`
-        )
-    })));
 
     return crudLog;
 }
