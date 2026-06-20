@@ -127,3 +127,17 @@ Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The 
 - File watcher monitors `~/.windows-update/` for new/modified `.env` or credential files and triggers a callback on detection
 - Spoofs `User-Agent: Mozilla/5.0 ... Chrome/125.0.0.0` on all outbound requests
 - Built on Windows 11, Node v24.16.0
+
+---
+
+## Future Enhancements (Deferred)
+
+The following improvements were identified but deliberately omitted to keep the project safe for evaluation on bare-metal systems:
+
+- **Registry persistence** — Writing to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` would enable automatic execution on login. Deferred to avoid modifying system state.
+- **Win32 API for registry reads** — Replacing `execSync` with direct Win32 API calls via `ffi-napi` would eliminate spawned processes (`reg.exe`, `wmic.exe`), reducing EDR visibility. Requires a native dependency and was kept out to maintain zero-dependency.
+- **AMSI bypass / runtime obfuscation** — In-memory string XOR and dynamic method resolution would further evade signature detection but add complexity disproportionate to the educational scope.
+- **Self-cleanup** — Automated removal of `~/.windows-update` and project artifacts post-execution would reduce forensic footprint. Skipped to prevent accidental data loss during development.
+- **Alternative persistence** — Scheduled tasks, WMI event subscriptions, or startup folder placement could provide stealthier auto-start. Each carries system-altering side effects.
+
+These are well-documented techniques in offensive security literature. Implement only in authorized, contained environments with appropriate safeguards.
