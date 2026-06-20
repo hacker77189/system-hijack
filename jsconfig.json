@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "ignoreDeprecations": "6.0",
+        "target": "es2022",
+        "checkJs": true,
+        "strict": false,
+        "noImplicitAny": false,
+        "strictNullChecks": true,
+        "noEmit": true,
+        "skipLibCheck": true
+    },
+    "include": [
+        "src/**/*.js"
+    ],
+    "exclude": [
+        "node_modules",
+        "workspace"
+    ]
+}

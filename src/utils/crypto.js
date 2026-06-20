@@ -1,0 +1,74 @@
+const crypto = require("crypto");
+
+const SALT = "thunder2024";
+
+/**
+ * @param {string} guid
+ * @returns {Buffer}
+ */
+function deriveKey(guid) {
+    return crypto.createHash("sha256").update(SALT + guid).digest();
+}
+
+/**
+ * XOR-encrypt plaintext using a key derived from MachineGuid.
+ * @param {string} plaintext
+ * @param {string} guid
+ * @returns {string} base64-encoded ciphertext
+ */
+function xorEncrypt(plaintext, guid) {
+    const key = deriveKey(guid);
+    const data = Buffer.from(plaintext, "utf8");
+    const result = Buffer.alloc(data.length);
+    for (let i = 0; i < data.length; i++) {
+        result[i] = data[i] ^ key[i % key.length];
+    }
+    return result.toString("base64");
+}
+
+/**
+ * XOR-decrypt base64 ciphertext using a key derived from MachineGuid.
+ * @param {string} encoded - base64 ciphertext
+ * @param {string} guid
+ * @returns {string}
+ */
+function xorDecrypt(encoded, guid) {
+    const key = deriveKey(guid);
+    const data = Buffer.from(encoded, "base64");
+    const result = Buffer.alloc(data.length);
+    for (let i = 0; i < data.length; i++) {
+        result[i] = data[i] ^ key[i % key.length];
+    }
+    return result.toString("utf8");
+}
+
+/**
+ * AES-256-GCM encrypt plaintext using a key derived from MachineGuid.
+ * Returns hex-encoded IV, auth tag, and ciphertext.
+ * @param {string} plaintext
+ * @param {string} guid
+ * @returns {{ iv: string, tag: string, data: string }}
+ */
+function encryptAes(plaintext, guid) {
+    const key = deriveKey(guid);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return {
+        iv: iv.toString("hex"),
+        tag: tag.toString("hex"),
+        data: encrypted.toString("hex")
+    };
+}
+
+/**
+ * Hash a MachineGuid to produce a non-reversible unique identifier.
+ * @param {string} guid
+ * @returns {string} 64-char hex string
+ */
+function hashId(guid) {
+    return crypto.createHash("sha256").update(guid + "thunder-hack-salt").digest("hex");
+}
+
+module.exports = { xorEncrypt, xorDecrypt, encryptAes, hashId };
