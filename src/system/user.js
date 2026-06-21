@@ -1,13 +1,10 @@
 const os = require("os");
+const safe = require("../utils/safe");
 
 function getUserInfo() {
     return {
         homeDirectory: os.homedir(),
-
-        username:
-            process.env.USERNAME ||
-            process.env.USER ||
-            "N/A"
+        username: safe(process.env.USERNAME || process.env.USER)
     };
 }
 

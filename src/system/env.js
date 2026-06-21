@@ -1,29 +1,18 @@
+const safe = require("../utils/safe");
+
 function getEnvironmentInfo() {
     return {
-        PATH: process.env.PATH || "N/A",
+        PATH: safe(process.env.PATH),
 
-        USERNAME:
-            process.env.USERNAME ||
-            process.env.USER ||
-            "N/A",
+        USERNAME: safe(process.env.USERNAME || process.env.USER),
 
-        HOME:
-            process.env.HOME ||
-            process.env.USERPROFILE ||
-            "N/A",
+        HOME: safe(process.env.HOME || process.env.USERPROFILE),
 
-        TEMP:
-            process.env.TEMP ||
-            process.env.TMP ||
-            "N/A",
+        TEMP: safe(process.env.TEMP || process.env.TMP),
 
-        SHELL:
-            process.env.SHELL ||
-            "N/A",
+        SHELL: safe(process.env.SHELL),
 
-        NODE_ENV:
-            process.env.NODE_ENV ||
-            "N/A"
+        NODE_ENV: safe(process.env.NODE_ENV)
     };
 }
 

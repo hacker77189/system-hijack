@@ -10,7 +10,7 @@ let parsed;
 try {
     parsed = JSON.parse(decrypted);
 } catch {
-    logger.error("Failed to decrypt credentials — MachineGuid mismatch?");
+    logger.warn("Failed to decrypt credentials — MachineGuid mismatch?");
     parsed = {};
 }
 
