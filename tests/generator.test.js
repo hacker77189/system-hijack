@@ -1,7 +1,6 @@
 const { describe, it, mock, after } = require("node:test");
 const assert = require("node:assert/strict");
 const generateReport = require("../src/report/generator");
-const path = require("path");
 const fs = require("fs");
 
 describe("generateReport", () => {

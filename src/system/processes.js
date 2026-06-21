@@ -4,49 +4,31 @@ const logger = require("../utils/logger");
 async function getProcessList() {
     try {
         const output = await execAsync(
-            "wmic process get name,processid,executablepath /format:csv",
-            { timeout: 8000 }
+            'powershell -NoProfile -Command "Get-Process | Select-Object Name,Id,Path | ConvertTo-Json"',
+            { timeout: 10000 }
         );
 
-        const lines = output.trim().split("\n");
-        if (lines.length < 2) return [];
-
-        const headers = lines[0].split(",").map(h => h.trim());
-        const results = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const vals = lines[i].split(",").map(v => v.trim());
-            const entry = {};
-            for (let j = 0; j < headers.length; j++) {
-                entry[headers[j]] = vals[j] || "N/A";
-            }
-            results.push(entry);
+        let parsed;
+        try {
+            parsed = JSON.parse(output.trim());
+        } catch {
+            logger.warn("Failed to parse process JSON output, falling back");
+            return [];
         }
 
-        return results;
+        if (!Array.isArray(parsed)) {
+            return parsed ? [parsed] : [];
+        }
+
+        return parsed.map(p => ({
+            Name: p.Name || "N/A",
+            ProcessId: p.Id ?? "N/A",
+            ExecutablePath: p.Path || "N/A"
+        }));
     } catch (err) {
         logger.warn(`Process list query failed: ${err.message}`);
         return [];
     }
 }
 
-function parseCSVLine(line) {
-    const result = [];
-    let current = "";
-    let inQuotes = false;
-    for (const ch of line) {
-        if (ch === '"') {
-            inQuotes = !inQuotes;
-        } else if (ch === "," && !inQuotes) {
-            result.push(current.trim());
-            current = "";
-        } else {
-            current += ch;
-        }
-    }
-    result.push(current.trim());
-    return result;
-}
-
 module.exports = getProcessList;
-module.exports.parseCSVLine = parseCSVLine;

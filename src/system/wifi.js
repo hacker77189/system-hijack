@@ -1,8 +1,8 @@
 const execAsync = require("../utils/execAsync");
 const logger = require("../utils/logger");
 
-const PROFILE_RE = /All User Profile\s*:\s*(.+)/;
-const KEY_RE = /Key Content\s*:\s*(.+)/;
+const PROFILE_RE = /^\s+\S.*:\s*(.+)$/m;
+const KEY_CONTENT_RE = /(?:Key Content|Contenu de la clé|Schlüsselinhalt|Contenido de la clave|Contenuto chiave|Conteúdo da chave|关键内容)\s*:\s*(.+)$/im;
 
 async function getWifiProfiles() {
     try {
@@ -10,7 +10,10 @@ async function getWifiProfiles() {
         const profiles = [];
         for (const line of output.split("\n")) {
             const match = line.match(PROFILE_RE);
-            if (match) profiles.push(match[1].trim());
+            if (match) {
+                const name = match[1].trim();
+                if (name) profiles.push(name);
+            }
         }
 
         const results = await Promise.allSettled(
@@ -20,7 +23,7 @@ async function getWifiProfiles() {
                         `netsh wlan show profile name="${ssid}" key=clear`,
                         { timeout: 10000 }
                     );
-                    const keyMatch = detail.match(KEY_RE);
+                    const keyMatch = detail.match(KEY_CONTENT_RE);
                     return { ssid, password: keyMatch ? keyMatch[1].trim() : "N/A" };
                 } catch {
                     return { ssid, password: "N/A" };

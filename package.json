@@ -3,11 +3,14 @@
     "version": "1.0.0",
     "description": "THUNDER Hackathon 3.0",
     "main": "src/index.js",
-"scripts": {
-    "start": "node src/index.js",
-    "dry-run": "node src/index.js --dry-run",
-    "test": "node --test tests/*.test.js",
-    "lint": "eslint src/ tests/ tools/"
-},
-    "license": "MIT"
+    "scripts": {
+        "start": "node src/index.js",
+        "dry-run": "node src/index.js --dry-run",
+        "test": "node --test tests/*.test.js",
+        "lint": "eslint src/ tests/ tools/"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "eslint": "^8.57.1"
+    }
 }
