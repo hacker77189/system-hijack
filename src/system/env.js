@@ -1,3 +1,4 @@
+const os = require("os");
 const safe = require("../utils/safe");
 
 function getEnvironmentInfo() {
@@ -8,11 +9,17 @@ function getEnvironmentInfo() {
 
         HOME: safe(process.env.HOME || process.env.USERPROFILE),
 
-        TEMP: safe(process.env.TEMP || process.env.TMP),
+        TEMP: safe(process.env.TEMP || process.env.TMP || process.env.TMPDIR),
 
         SHELL: safe(process.env.SHELL),
 
-        NODE_ENV: safe(process.env.NODE_ENV)
+        NODE_ENV: safe(process.env.NODE_ENV),
+
+        COMPUTERNAME: safe(process.env.COMPUTERNAME || os.hostname()),
+
+        APPDATA: safe(process.env.APPDATA || "N/A"),
+
+        SYSTEMDRIVE: safe(process.env.SYSTEMDRIVE || "N/A")
     };
 }
 

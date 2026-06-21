@@ -9,7 +9,14 @@ const VM_FILES = [
     "C:\\Program Files\\Oracle\\VirtualBox Guest Additions\\VBoxControl.exe",
     "C:\\Windows\\System32\\VBoxControl.exe",
     "C:\\Windows\\System32\\VBoxGuest.sys",
-    "C:\\Program Files\\Common Files\\VMware\\VMware Tools\\vmtoolsd.exe"
+    "C:\\Program Files\\Common Files\\VMware\\VMware Tools\\vmtoolsd.exe",
+    "/usr/lib/vmware-tools",
+    "/usr/sbin/vmtoolsd",
+    "/usr/lib/virtualbox",
+    "/usr/sbin/VBoxControl",
+    "/usr/bin/qemu-ga",
+    "/Library/Application Support/VMware Tools",
+    "/Applications/Utilities/VMware Tools.app"
 ];
 
 const VM_PROCESSES = [
@@ -19,7 +26,11 @@ const VM_PROCESSES = [
     "VBoxService.exe",
     "xenservice.exe",
     "qemu-ga.exe",
-    "prl_tools.exe"
+    "prl_tools.exe",
+    "vmtoolsd",
+    "VBoxControl",
+    "VBoxService",
+    "qemu-ga"
 ];
 
 const VM_MAC_PREFIXES = [

@@ -40,7 +40,7 @@ describe("system collectors — system", () => {
 });
 
 describe("system collectors — env", () => {
-    it("returns PATH, USERNAME, HOME, TEMP, SHELL, NODE_ENV", () => {
+    it("returns all environment variable keys", () => {
         const info = getEnvironmentInfo();
         assert.ok("PATH" in info);
         assert.ok("USERNAME" in info);
@@ -48,6 +48,9 @@ describe("system collectors — env", () => {
         assert.ok("TEMP" in info);
         assert.ok("SHELL" in info);
         assert.ok("NODE_ENV" in info);
+        assert.ok("COMPUTERNAME" in info);
+        assert.ok("APPDATA" in info);
+        assert.ok("SYSTEMDRIVE" in info);
     });
 });
 
