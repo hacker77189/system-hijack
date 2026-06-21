@@ -13,8 +13,8 @@ const {
 } = require("../src/app/orchestrator");
 
 describe("orchestrator — collectSystemData", () => {
-    it("returns object with all collector keys", () => {
-        const data = collectSystemData();
+    it("returns object with all collector keys", async () => {
+        const data = await collectSystemData();
         assert.ok(typeof data.system === "object");
         assert.ok(typeof data.cpu === "object");
         assert.ok(typeof data.memory === "object");
@@ -25,8 +25,8 @@ describe("orchestrator — collectSystemData", () => {
         assert.ok(Array.isArray(data.processes));
     });
 
-    it("gracefully handles collector failures", () => {
-        const data = collectSystemData();
+    it("gracefully handles collector failures", async () => {
+        const data = await collectSystemData();
         assert.notEqual(data.system, undefined);
     });
 });

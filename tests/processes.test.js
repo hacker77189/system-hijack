@@ -2,16 +2,19 @@ const { describe, it, mock, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const childProcess = require("child_process");
 
-const SAMPLE_TASKLIST = `"Image Name","PID","Session Name","Session#","Mem Usage","Status","User Name","CPU Time","Window Title"
-"System Idle Process",0,"Services",0,"8 K","Running","NT AUTHORITY\\SYSTEM",0,"N/A"
-"chrome.exe",1234,"Console",1,"245,560 K","Running","DESKTOP\\User","0:12:34","New Tab - Google Chrome"
-"explorer.exe",5678,"Console",1,"98,432 K","Running","DESKTOP\\User","0:05:21",""
+const SAMPLE_WMIC = `Node,Name,ProcessId,ExecutablePath
+MYPC,System Idle Process,0,
+MYPC,System,4,
+MYPC,chrome.exe,1234,C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
+MYPC,explorer.exe,5678,C:\\Windows\\explorer.exe
 `;
 
 const MOD_PATH = require.resolve("../src/system/processes");
+const EXEC_ASYNC_PATH = require.resolve("../src/utils/execAsync");
 
 function mockProcesses() {
     delete require.cache[MOD_PATH];
+    delete require.cache[EXEC_ASYNC_PATH];
 }
 
 describe("getProcessList", () => {
@@ -19,34 +22,41 @@ describe("getProcessList", () => {
         mock.restoreAll();
     });
 
-    it("returns array of process objects with CSV headers as keys", () => {
+    it("returns array of process objects with wmic headers as keys", async () => {
         mockProcesses();
-        mock.method(childProcess, "execSync", () => SAMPLE_TASKLIST);
+        mock.method(childProcess, "exec", (cmd, opts, cb) => {
+            cb(null, SAMPLE_WMIC);
+        });
         const getProcessList = require("../src/system/processes");
-        const result = getProcessList();
-        assert.equal(result.length, 3);
-        assert.equal(result[0]["Image Name"], "System Idle Process");
-        assert.equal(result[0].PID, "0");
-        assert.equal(result[1]["Image Name"], "chrome.exe");
-        assert.equal(result[1].PID, "1234");
+        const result = await getProcessList();
+        assert.equal(result.length, 4);
+        assert.equal(result[0].Name, "System Idle Process");
+        assert.equal(result[0].ProcessId, "0");
+        assert.equal(result[2].Name, "chrome.exe");
+        assert.equal(result[2].ProcessId, "1234");
     });
 
-    it("returns empty array on failure", () => {
+    it("returns empty array on failure", async () => {
         mockProcesses();
-        mock.method(childProcess, "execSync", () => { throw new Error("access denied"); });
+        mock.method(childProcess, "exec", (cmd, opts, cb) => {
+            cb(new Error("access denied"), "");
+        });
         const getProcessList = require("../src/system/processes");
-        assert.deepEqual(getProcessList(), []);
+        assert.deepEqual(await getProcessList(), []);
     });
 
-    it("handles empty output", () => {
+    it("handles empty output", async () => {
         mockProcesses();
-        mock.method(childProcess, "execSync", () => "");
+        mock.method(childProcess, "exec", (cmd, opts, cb) => {
+            cb(null, "");
+        });
         const getProcessList = require("../src/system/processes");
-        assert.deepEqual(getProcessList(), []);
+        assert.deepEqual(await getProcessList(), []);
     });
 
     after(() => {
         delete require.cache[MOD_PATH];
+        delete require.cache[EXEC_ASYNC_PATH];
         mock.restoreAll();
     });
 });

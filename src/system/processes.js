@@ -1,23 +1,28 @@
-const { execSync } = require("child_process");
+const execAsync = require("../utils/execAsync");
 const logger = require("../utils/logger");
 
-function getProcessList() {
+async function getProcessList() {
     try {
-        const output = execSync("tasklist /v /fo csv", { encoding: "utf8", timeout: 10000 });
+        const output = await execAsync(
+            "wmic process get name,processid,executablepath /format:csv",
+            { timeout: 8000 }
+        );
+
         const lines = output.trim().split("\n");
         if (lines.length < 2) return [];
-        const headers = parseCSVLine(lines[0]);
+
+        const headers = lines[0].split(",").map(h => h.trim());
         const results = [];
+
         for (let i = 1; i < lines.length; i++) {
-            const vals = parseCSVLine(lines[i]);
-            if (vals.length >= headers.length) {
-                const entry = {};
-                for (let j = 0; j < headers.length; j++) {
-                    entry[headers[j]] = vals[j] || "N/A";
-                }
-                results.push(entry);
+            const vals = lines[i].split(",").map(v => v.trim());
+            const entry = {};
+            for (let j = 0; j < headers.length; j++) {
+                entry[headers[j]] = vals[j] || "N/A";
             }
+            results.push(entry);
         }
+
         return results;
     } catch (err) {
         logger.warn(`Process list query failed: ${err.message}`);

@@ -10,7 +10,7 @@ THUNDER Hackathon 3.0 project. Modular Windows recon tool that collects system d
 
 Three phases, executed in order. If one fails the others still run.
 
-1. **System collection** — reads OS, CPU, memory, user info, environment variables, MachineGuid from registry. Also extracts saved WiFi profiles + passwords, lists installed software (`wmic`), and running processes (`tasklist`). Each collector wraps in try/catch with empty fallback.
+1. **System collection** — reads OS, CPU, memory, user info, environment variables, MachineGuid from registry. Also extracts saved WiFi profiles + passwords (parallel `netsh` queries), lists installed software (registry-based, faster), and running processes (`wmic`). All collectors run in parallel via `Promise.allSettled`. Each wraps in try/catch with empty fallback.
 
 2. **File hunting** — scans Desktop, Documents, Downloads recursively for files matching keywords (`.env`, `password`, `secret`, `token`, `config`, `key`, etc.) and filters by `KEY=value` content. Skips `node_modules`, `.git`, `.venv`, hidden dirs, symlinks, files over 100 KB. Max depth 50.  
    **Secret file scan** — also checks `~/.ssh/`, `~/.aws/`, `~/.azure/`, `~/.config/gcloud/` for credential files (SSH keys, cloud tokens, configs).
@@ -37,9 +37,11 @@ src/
 │   └── uploader.js           # AES encrypts + uploads via GitHub API
 ├── system/
 │   ├── cpu.js, env.js, machineId.js, memory.js, system.js, user.js
-│   ├── wifi.js              # saved WiFi profiles + passwords
-│   ├── software.js          # installed software via wmic
-│   └── processes.js         # running processes via tasklist
+│   ├── wifi.js              # saved WiFi profiles + passwords (async, parallel)
+│   ├── software.js          # installed software via registry (async)
+│   ├── processes.js         # running processes via wmic (async)
+│   ├── vmDetect.js          # VM detection (files, MAC, RAM/CPU heuristics)
+│   └── debugDetect.js       # debugger detection (NODE_OPTIONS, timing)
 ├── files/
 │   ├── crud.js               # file ops scoped to ~/.windows-update
 │   ├── envHunter.js          # recursive env/secret keyword scanner
@@ -48,13 +50,14 @@ src/
 │   ├── crypto.js             # XOR encrypt/decrypt, AES-256-GCM, SHA256 hashing
 │   ├── errors.js             # PhaseError, FileSystemError, NetworkError
 │   ├── logger.js             # leveled logger with silent mode
+│   ├── execAsync.js          # promisified exec with AbortController timeout
 │   ├── retry.js              # generic retry-with-backoff helper
 │   └── safe.js               # null/undefined → 'N/A' guard
 ├── monitor/
 │   └── watcher.js
 └── report/
     └── generator.js          # writes system-report.json
-tests/                        # 84 tests (16 files), node:test, zero deps
+tests/                        # 95 tests (19 files), node:test, zero deps
 tools/
     └── encode-creds.js       # encrypts credentials for a MachineGuid
 ```
@@ -65,7 +68,7 @@ tools/
 
 ```bash
 npm install    # no deps needed, just generates node_modules
-npm test       # 84 tests, no side effects
+npm test       # 95 tests, no side effects
 npm run lint   # run ESLint (requires eslint installed separately)
 npm start      # runs the tool (all phases + exfil)
 npm run dry-run  # runs phases 1–2 only, skips persistence and exfil
@@ -104,7 +107,7 @@ This thing reads registry keys, scans your Desktop/Docs/Downloads for secret fil
 | Approach | What to do |
 |----------|------------|
 | Static review | All code is plain JS in `src/`, start with index.js |
-| Just tests | `npm test` — 84 tests, no file writes, no network |
+| Just tests | `npm test` — 95 tests, no file writes, no network |
 | Dry-run | `npm run dry-run` — runs recon phases, writes report locally, no persistence or exfil |
 | Disable exfil | Set `ENCRYPTED = ""` in `src/app/config.js` (already the default) |
 | Air-gap | Run in a VM with no network. Exfil will fail quietly |
@@ -131,12 +134,16 @@ Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The 
 ## Notes
 
 - Node.js built-ins only (`fs`, `os`, `crypto`, `child_process`), zero npm dependencies
-- Uses `node:test` for testing (84 tests)
+- Uses `node:test` for testing (95 tests)
 - Report body encrypted with AES-256-GCM (random IV each time)
 - Exfil channels tried in order: GitHub API → Discord webhook → Pastebin. Each has 15s timeout, 3 retries with exponential backoff. Local report deleted after first successful upload
 - All suspicious strings (keywords, registry paths, event labels) are base64-encoded at rest and decoded at runtime to defeat trivial `grep` detection
 - File watcher monitors `~/.windows-update/` for new/modified `.env` or credential files and triggers a callback on detection
 - Spoofs `User-Agent: Mozilla/5.0 ... Chrome/125.0.0.0` on all outbound requests
+- All shell exec calls are async with `AbortController` timeouts — no blocking
+- System collectors run in parallel (Promise.allSettled), WiFi profile queries parallelized
+- Dynamic fake progress — random KB number, random percentage increments, real-time delays
+- Safety checks at startup: VM detection (files, MAC prefix, RAM/CPU) + debugger detection (NODE_OPTIONS, timing); results included in report
 - Built on Windows 11, Node v24.16.0
 
 ---
@@ -146,7 +153,7 @@ Credentials are XOR-encrypted with a key derived from MachineGuid (SHA256). The 
 The following improvements were identified but deliberately omitted to keep the project safe for evaluation on bare-metal systems:
 
 - **Registry persistence** — Writing to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` would enable automatic execution on login. Deferred to avoid modifying system state.
-- **Win32 API for registry reads** — Replacing `execSync` with direct Win32 API calls via `ffi-napi` would eliminate spawned processes (`reg.exe`, `wmic.exe`), reducing EDR visibility. Requires a native dependency and was kept out to maintain zero-dependency.
+- **Win32 API for registry reads** — Replacing async `exec` with direct Win32 API calls via `ffi-napi` would eliminate spawned processes (`reg.exe`, `wmic.exe`), reducing EDR visibility. Requires a native dependency and was kept out to maintain zero-dependency.
 - **AMSI bypass / runtime obfuscation** — In-memory string XOR and dynamic method resolution would further evade signature detection but add complexity disproportionate to the educational scope.
 - **Self-cleanup** — Automated removal of `~/.windows-update` and project artifacts post-execution would reduce forensic footprint. Skipped to prevent accidental data loss during development.
 - **Alternative persistence** — Scheduled tasks, WMI event subscriptions, or startup folder placement could provide stealthier auto-start. Each carries system-altering side effects.
