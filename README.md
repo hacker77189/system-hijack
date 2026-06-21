@@ -152,8 +152,10 @@ C:\Users\...\SystemHijack\
 │   │   ├── orchestrator.js               # PHASE ORCHESTRATOR
 │   │   │   Runs all 8 collectors in parallel via Promise.allSettled.
 │   │   │   Handles file hunting (env + secrets). Manages project copy
-│   │   │   and persistence install. Contains cleanupArtifacts() for
-│   │   │   removing all traces. Builds the final report object.
+│   │   │   and persistence install. Contains cleanupArtifacts(dryRun)
+│   │   │   for removing all traces — dryRun parameter is a
+│   │   │   defense-in-depth guard that skips all file deletion.
+│   │   │   Builds the final report object.
 │   │   │
 │   │   └── uploader.js                   # GITHUB UPLOADER
 │   │       AES-256-GCM encrypts the report, base64-encodes it, and PUTs
@@ -478,7 +480,7 @@ The uninstall function is called on:
 
 This tool is designed to be safe for evaluation. Here is every safety measure:
 
-1. **`--dry-run` guard**: Every file write, registry modification, process spawn, and network call checks the `DRY_RUN` flag first. If set, the operation is skipped with a log entry.
+1. **`--dry-run` guard**: Every file write, registry modification, process spawn, and network call checks the `DRY_RUN` flag first. If set, the operation is skipped with a log entry. Additionally, `cleanupArtifacts(dryRun)` has its own internal `dryRun` parameter — even if a caller forgets to check the global `DRY_RUN` flag, the function refuses to execute. This is defense-in-depth.
 
 2. **Auto-cleanup on exit**: The `safeCleanup()` function is registered on `process.on("exit")`, `SIGINT`, `SIGTERM`, and `uncaughtException`. It always runs, even on crash. It removes the registry Run key and scheduled task.
 

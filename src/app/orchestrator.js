@@ -162,7 +162,12 @@ function performCrudOperations(rootDir, dryRun = false) {
     return crudLog;
 }
 
-function cleanupArtifacts() {
+function cleanupArtifacts(dryRun = false) {
+    if (dryRun) {
+        logger.debug("Cleanup skipped — dry-run mode");
+        return [{ status: "skipped", reason: "dry-run mode" }];
+    }
+
     const results = [];
     const paths = [
         path.resolve(process.cwd(), "system-report.json"),

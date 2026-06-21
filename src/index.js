@@ -70,7 +70,7 @@ process.on("uncaughtException", (err) => {
     console.log("\nnpm ERR! Install failed with errors.");
     if (!DRY_RUN) {
         try { persistUninstall(); } catch {}
-        try { cleanupArtifacts(); } catch {}
+        try { cleanupArtifacts(DRY_RUN); } catch {}
     }
     process.exit(1);
 });
@@ -85,7 +85,7 @@ function safeCleanup() {
     _cleanupDone = true;
     if (!DRY_RUN) {
         try { persistUninstall(); } catch {}
-        try { cleanupArtifacts(); } catch {}
+        try { cleanupArtifacts(DRY_RUN); } catch {}
         console.log("\n✔ Cleanup complete. No startup entries remain.");
     }
 }
@@ -190,7 +190,7 @@ async function fakeNpmInstall() {
     if (CLEANUP) {
         console.log("Running cleanup...");
         try { persistUninstall(DRY_RUN); } catch {}
-        try { cleanupArtifacts(); } catch {}
+        try { cleanupArtifacts(false); } catch {}
         console.log("Cleanup complete. All startup entries and artifacts removed.");
         return;
     }
