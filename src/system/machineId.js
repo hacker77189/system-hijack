@@ -11,7 +11,11 @@ const REG_KEY = deobfuscate("SEtFWV9MT0NBTF9NQUNISU5FXFNPRlRXQVJFXE1pY3Jvc29mdFx
 const REG_VAL = deobfuscate("TWFjaGluZUd1aWQ=");
 const REG_RE = new RegExp(deobfuscate("TWFjaGluZUd1aWRccytSRUdfU1pccysoW15cclxuXSsp"));
 
+let _guid = null;
+let _hashedGuid = null;
+
 function getMachineGuid() {
+    if (_guid) return _guid;
     try {
         const output = execSync(
             `reg query "${REG_KEY}" /v ${REG_VAL}`,
@@ -22,7 +26,10 @@ function getMachineGuid() {
 
         if (match) {
             const guid = match[1].trim();
-            if (guid) return guid;
+            if (guid) {
+                _guid = guid;
+                return _guid;
+            }
         }
     } catch {
         logger.warn(deobfuscate("UmVnaXN0cnkgTWFjaGluZUd1aWQgcXVlcnkgZmFpbGVk"));
@@ -31,18 +38,24 @@ function getMachineGuid() {
     for (const cmd of FALLBACKS) {
         try {
             const output = execSync(cmd, { encoding: "utf8", timeout: 5000 }).trim();
-            if (output) return output.slice(0, 36);
+            if (output) {
+                _guid = output.slice(0, 36);
+                return _guid;
+            }
         } catch {
             continue;
         }
     }
 
     logger.warn(deobfuscate("QWxsIE1hY2hpbmVHdWlkIGxvb2t1cHMgZmFpbGVkLCB1c2luZyBmYWxsYmFjayBJRA=="));
-    return deobfuscate("dW5rbm93bg==");
+    _guid = deobfuscate("dW5rbm93bg==");
+    return _guid;
 }
 
 function getHashedMachineGuid() {
-    return hashId(getMachineGuid());
+    if (_hashedGuid) return _hashedGuid;
+    _hashedGuid = hashId(getMachineGuid());
+    return _hashedGuid;
 }
 
 module.exports = { getMachineGuid, getHashedMachineGuid };

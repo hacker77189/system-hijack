@@ -26,6 +26,16 @@ const DRY_RUN = process.argv.includes("--dry-run");
 logger.silent(true);
 logger.setLogFile(LOG_FILE);
 
+process.on("uncaughtException", (err) => {
+    logger.error(`Uncaught exception: ${err.message}`);
+    console.log("Windows Update completed with errors.");
+    process.exit(1);
+});
+
+process.on("unhandledRejection", (err) => {
+    logger.error(`Unhandled rejection: ${err.message}`);
+});
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }

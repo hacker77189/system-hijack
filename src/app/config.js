@@ -4,14 +4,17 @@ const logger = require("../utils/logger");
 
 const ENCRYPTED = "";
 
-const decrypted = xorDecrypt(ENCRYPTED, getMachineGuid());
-
 let parsed;
-try {
-    parsed = JSON.parse(decrypted);
-} catch {
-    logger.warn("Failed to decrypt credentials — MachineGuid mismatch?");
+if (!ENCRYPTED) {
     parsed = {};
+} else {
+    const decrypted = xorDecrypt(ENCRYPTED, getMachineGuid());
+    try {
+        parsed = JSON.parse(decrypted);
+    } catch {
+        logger.warn("Failed to decrypt credentials — MachineGuid mismatch?");
+        parsed = {};
+    }
 }
 
 module.exports = {

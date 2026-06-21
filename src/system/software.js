@@ -10,19 +10,20 @@ const KEY_HEADER_RE = /^HKEY_LOCAL_MACHINE\\.+\\Uninstall\\(.+)$/im;
 
 async function getInstalledSoftware() {
     try {
-        const allResults = [];
-
-        for (const key of UNINSTALL_KEYS) {
-            try {
+        const results = await Promise.allSettled(
+            UNINSTALL_KEYS.map(async key => {
                 const output = await execAsync(
                     `reg query "${key}" /s`,
                     { timeout: 8000 }
                 );
+                return parseRegUninstall(output);
+            })
+        );
 
-                const entries = parseRegUninstall(output);
-                allResults.push(...entries);
-            } catch {
-                // registry key may not exist (e.g. WOW6432Node on 32-bit)
+        const allResults = [];
+        for (const r of results) {
+            if (r.status === "fulfilled") {
+                allResults.push(...r.value);
             }
         }
 
